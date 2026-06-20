@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LOB Academy</title>
+  <meta name="description" content="Your team's drill and exercise library" />
+  <!-- PWA: makes it installable on phone home screens -->
+  <meta name="theme-color" content="#E65C00" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="LOB Academy" />
+
+  <!-- Supabase client library — lets this page talk to your database -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    /* =============================================
+       RESET & BASE
+    ============================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange: #E65C00;
+      --orange-dark: #C24400;
+      --orange-hover: #c94e00;
+      --orange-light: #FFF3EC;
+      --orange-border: #F5C3A3;
+
+      --bg: #ffffff;
+      --bg-secondary: #f7f7f5;
+      --border: rgba(0,0,0,0.12);
+      --border-mid: rgba(0,0,0,0.20);
+
+      --text: #1a1a18;
+      --text-secondary: #6b6b67;
+      --text-muted: #999994;
+
+      --radius-sm: 8px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-pill: 999px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100dvh;
+    }
+
+    /* =============================================
+       AUTH SCREEN
+    ============================================= */
+    #authScreen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 2rem 1rem;
+      text-align: center;
+    }
+
+    .auth-logo {
+      width: 80px;
+      height: 80px;
+      background: var(--orange);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 38px;
+      margin: 0 auto 1.25rem;
+    }
+
+    .auth-appname {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .auth-tagline {
+      font-size: 15px;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+    }
+
+    .auth-card {
+      background: var(--bg-secondary);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .auth-card label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+
+    .auth-card input {
+      width: 100%;
+      padding: 10px 13px;
+      border-radius: var(--radius-sm);
+      border: 0.5px solid var(--border-mid);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px; /* 16px prevents iOS zoom */
+      font-family: inherit;
+      margin-bottom: 14px;
+      outline: none;
+    }
+
+    .auth-card input:focus {
+      border-color: var(--orange);
+      box-shadow: 0 0 0 3px rgba(230, 92, 0, 0.12);
+    }
+
+    .btn-primary {
+      display: block;
+      width: 100%;
+      padding: 11px;
+      background: var(--orange);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-primary:hover { background: var(--orange-hover); }
+    .btn-primary:active { transform: scale(0.98); }
+
+    .auth-error {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #c0392b;
+      display: none;
+    }
+
+    /* =============================================
+       MAIN APP (hidden until logged in)
+    ============================================= */
+    #mainApp { display: none; }
+
+    /* Top bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg);
+      border-bottom: 0.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .topbar-dot {
+      width: 30px;
+      height: 30px;
+      background: var(--orange);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .topbar-name {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-pill {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      background: var(--orange-light);
+      color: var(--orange-dark);
+      border: 0.5px solid var(--orange-border);
+      font-weight: 500;
+    }
+
+    .btn-ghost {
+      font-size: 13px;
+      color: var(--text-secondary);
+      background: none;
+      border: 0.5px solid var(--border);
+      padding: 5px 11px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.12s;
+    }
+
+    .btn-ghost:hover { background: var(--bg-secondary); }
+
+    /* Tab navigation */
+    .tabnav {
+      display: flex;
+      border-bottom: 0.5px solid var(--border);
+      padding: 0 16px;
+      background: var(--bg);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tabnav::-webkit-scrollbar { display: none; }
+
+    .tab {
+      padding: 11px 0;
+      margin-right: 22px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: color 0.12s;
+    }
+
+    .tab.active {
+      color: var(--orange);
+      border-bottom-color: var(--orange);
+      font-weight: 500;
+    }
+
+    /* Page content */
+    .page { display: none; padding: 16px; max-width: 800px; margin: 0 auto; }
+    .page.active { display: block; }
+
+    /* =============================================
+       FILTER CHIPS
+    ============================================= */
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .chip {
+      padding: 5px 13px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      border: 0.5px solid var(--border-mid);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.12s;
+    }
+
+    .chip:hover { border-color: var(--orange); color: var(--orange); }
+    .chip.active { background: var(--orange); color: white; border-color: var(--orange); }
+
+    /* =============================================
+       DRILL / EXERCISE CARDS
+    ============================================= */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .drill-card {
+      position: relative;
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+
+    .drill-card:hover {
+      border-color: var(--border-mid);
+      transform: translateY(-1px);
+    }
+
+    .drill-card:active { transform: scale(0.98); }
+
+    .delete-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,0.06);
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      z-index: 2;
+    }
+
+    .delete-btn:hover {
+      background: #fdecea;
+      color: #c0392b;
+    }
+
+    .card-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 9px;
+      border-radius: var(--radius-pill);
+      margin-bottom: 9px;
+    }
+
+    /* Tag color variants — add more as needed */
+    .tag-ballhandling { background: #FFF3EC; color: #C24400; }
+    .tag-defense      { background: #EAF3DE; color: #3B6D11; }
+    .tag-conditioning { background: #E6F1FB; color: #185FA5; }
+    .tag-offense      { background: #F0E9FD; color: #5034B8; }
+    .tag-shooting     { background: #FAEEDA; color: #854F0B; }
+    .tag-default      { background: #F1EFE8; color: #5F5E5A; }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .card-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 12px;
+    }
+
+    /* =============================================
+       DETAIL VIEW
+    ============================================= */
+    .detail-view { display: none; }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0;
+      margin-bottom: 18px;
+    }
+
+    .back-btn:hover { color: var(--text); }
+
+    .edit-btn {
+      float: right;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--orange);
+      background: var(--orange-light);
+      border: 0.5px solid var(--orange-border);
+      padding: 5px 13px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      font-family: inherit;
+      margin-bottom: 18px;
+    }
+
+    .edit-btn:hover { background: var(--orange-border); }
+
+    .detail-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      margin: 8px 0;
+    }
+
+    .detail-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 20px;
+    }
+
+    .badge {
+      font-size: 12px;
+      padding: 3px 11px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 0.5px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin: 20px 0 10px;
+    }
+
+    .detail-desc {
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.75;
+    }
+
+    .steps-list { list-style: none; }
+
+    .step-item {
+      display: flex;
+      gap: 13px;
+      padding: 11px 0;
+      border-bottom: 0.5px solid var(--border);
+      align-items: flex-start;
+    }
+
+    .step-item:last-child { border-bottom: none; }
+
+    .step-num {
+      width: 26px;
+      height: 26px;
+      min-width: 26px;
+      background: var(--orange);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .step-text {
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.6;
+      padding-top: 2px;
+    }
+
+    /* =============================================
+       VIDEO EMBED (optional per drill)
+    ============================================= */
+    .video-wrapper {
+      position: relative;
+      padding-bottom: 56.25%; /* 16:9 */
+      height: 0;
+      overflow: hidden;
+      border-radius: var(--radius-md);
+      margin: 12px 0;
+      background: var(--bg-secondary);
+    }
+
+    .video-wrapper iframe {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      border: none;
+      border-radius: var(--radius-md);
+    }
+
+    /* =============================================
+       ADMIN / MANAGE TAB
+    ============================================= */
+    .admin-section {
+      background: var(--bg-secondary);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .admin-section-title {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .admin-section-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 14px;
+    }
+
+    .code-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+      border: 0.5px solid var(--border-mid);
+      border-radius: var(--radius-sm);
+      padding: 9px 13px;
+    }
+
+    .code-val {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: var(--orange);
+      flex: 1;
+      font-family: monospace;
+    }
+
+    .admin-form label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 14px 0 5px;
+    }
+
+    .admin-form label:first-of-type { margin-top: 0; }
+
+    .admin-form input,
+    .admin-form select,
+    .admin-form textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      border: 0.5px solid var(--border-mid);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .admin-form input:focus,
+    .admin-form select:focus,
+    .admin-form textarea:focus {
+      border-color: var(--orange);
+      box-shadow: 0 0 0 3px rgba(230, 92, 0, 0.1);
+    }
+
+    .admin-form textarea { min-height: 90px; resize: vertical; }
+
+    .btn-add {
+      margin-top: 16px;
+      padding: 10px 20px;
+      background: var(--orange);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+
+    .btn-add:hover { background: var(--orange-hover); }
+
+    .trainee-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 12px;
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+    }
+
+    .trainee-name { font-size: 14px; }
+    .trainee-date { font-size: 12px; color: var(--text-secondary); }
+
+    /* =============================================
+       TOAST NOTIFICATION
+    ============================================= */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a18;
+      color: white;
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+      z-index: 999;
+      white-space: nowrap;
+    }
+
+    /* =============================================
+       RESPONSIVE TWEAKS
+    ============================================= */
+    @media (max-width: 480px) {
+      .card-grid { grid-template-columns: 1fr 1fr; }
+      .topbar-name { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- =============================================
+     AUTH SCREEN
+============================================= -->
+<div id="authScreen">
+  <div class="auth-logo">🏀</div>
+  <div class="auth-appname">LOB Academy</div>
+  <div class="auth-tagline">Your team's drill library</div>
+  <div class="auth-card">
+    <label for="nameInput">Your name</label>
+    <input id="nameInput" type="text" placeholder="e.g. Marcus" autocomplete="name" />
+    <label for="codeInput">Access code</label>
+    <input id="codeInput" type="text" placeholder="Ask your coach for the code" autocomplete="off" />
+    <button class="btn-primary" onclick="tryLogin()">Enter vault</button>
+    <div class="auth-error" id="authError">
+      Code not recognized — ask your coach for the right one.
+    </div>
+  </div>
+</div>
+
+<!-- =============================================
+     MAIN APP
+============================================= -->
+<div id="mainApp">
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-dot"></div>
+      <div class="topbar-name">LOB Academy</div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-pill" id="userPill"></div>
+      <button class="btn-ghost" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+
+  <!-- Tab navigation -->
+  <div class="tabnav" id="tabNav">
+    <button class="tab active" onclick="showTab('drills', this)">Drills</button>
+    <button class="tab" onclick="showTab('exercises', this)">Exercises</button>
+    <!-- This tab only shows for the coach -->
+    <button class="tab" id="adminTab" onclick="showTab('admin', this)" style="display:none">Manage</button>
+  </div>
+
+  <!-- DRILLS PAGE -->
+  <div id="drills" class="page active">
+    <div id="drillListView">
+      <div class="filter-row" id="drillFilters"></div>
+      <div class="card-grid" id="drillGrid"></div>
+    </div>
+    <div class="detail-view" id="drillDetail"></div>
+  </div>
+
+  <!-- EXERCISES PAGE -->
+  <div id="exercises" class="page">
+    <div id="exerciseListView">
+      <div class="filter-row" id="exerciseFilters"></div>
+      <div class="card-grid" id="exerciseGrid"></div>
+    </div>
+    <div class="detail-view" id="exerciseDetail"></div>
+  </div>
+
+  <!-- ADMIN / MANAGE PAGE (coach only) -->
+  <div id="admin" class="page">
+
+    <!-- Access code management -->
+    <div class="admin-section">
+      <div class="admin-section-title">🔒 Team access code</div>
+      <div class="admin-section-sub">
+        Share this with trainees. They enter it on the login screen. Change it anytime to lock out the old code.
+      </div>
+      <div class="code-row">
+        <div class="code-val" id="codeDisplay">HOOP26</div>
+        <button class="btn-ghost" onclick="copyCode()">Copy</button>
+        <button class="btn-ghost" onclick="regenCode()">New code</button>
+      </div>
+    </div>
+
+    <!-- Trainee list -->
+    <div class="admin-section">
+      <div class="admin-section-title">👥 Trainees who've joined</div>
+      <div id="traineeList"></div>
+    </div>
+
+    <!-- Add new drill / exercise -->
+    <div class="admin-section">
+      <div class="admin-section-title">➕ Add new drill or exercise</div>
+      <div class="admin-form">
+        <label>Title</label>
+        <input type="text" id="newTitle" placeholder="e.g. Mikan Drill" />
+
+        <label>Type</label>
+        <select id="newType">
+          <option value="drill">Drill</option>
+          <option value="exercise">Exercise</option>
+        </select>
+
+        <label>Category</label>
+        <select id="newCategory">
+          <option>Ball handling</option>
+          <option>Offense</option>
+          <option>Defense</option>
+          <option>Conditioning</option>
+          <option>Shooting</option>
+        </select>
+
+        <label>Duration / Reps</label>
+        <input type="text" id="newDuration" placeholder="e.g. 5 min · 3 sets × 10 reps" />
+
+        <label>Difficulty</label>
+        <select id="newDifficulty">
+          <option>All levels</option>
+          <option>Beginner</option>
+          <option>Intermediate</option>
+          <option>Advanced</option>
+        </select>
+
+        <label>Description</label>
+        <textarea id="newDesc" placeholder="What is this drill and what skill does it build?"></textarea>
+
+        <label>Steps (one per line)</label>
+        <textarea id="newSteps" placeholder="Start at the block&#10;Drive to the basket&#10;Finish with both hands"></textarea>
+
+        <!-- Optional: YouTube video link -->
+        <label>YouTube link (optional)</label>
+        <input type="text" id="newVideo" placeholder="https://youtube.com/..." />
+
+        <button class="btn-add" onclick="addItem()">Add to vault</button>
+      </div>
+    </div>
+
+  </div><!-- /admin page -->
+</div><!-- /mainApp -->
+
+<div id="toast"></div>
+
+<script>
+  // =============================================
+  // CONFIGURATION — change these values
+  // =============================================
+
+  // COACH_CODE: only you should know this. Gives access to the Manage tab.
+  const COACH_CODE = "COACH2026";
+
+  // TEAM_CODE: share this with your trainees. You can change it in the app too.
+  let teamCode = "HOOP26";
+
+  // =============================================
+  // SUPABASE SETUP
+  // Paste your Project URL and anon public key below.
+  // Find them in Supabase: Project Settings → API
+  // =============================================
+  const SUPABASE_URL = "https://ybzpjokkjmjvqipxxvje.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlienBqb2tram1qdnFpcHh4dmplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MjkwMzYsImV4cCI6MjA5NzUwNTAzNn0.dlGo0M7xqq9yIF6fyOj_94PUbp0klUNRar49aCsq4Hg";
+
+  // Built lazily (not at page load) so a slow/blocked CDN or
+  // unfilled keys can't crash the whole script before it runs.
+  let supabaseClient = null;
+
+  function getSupabaseClient() {
+    if (supabaseClient) return supabaseClient;
+
+    if (SUPABASE_URL === "YOUR_SUPABASE_URL" || SUPABASE_ANON_KEY === "YOUR_SUPABASE_ANON_KEY") {
+      showToast("Supabase isn't connected yet — add your URL and key");
+      return null;
+    }
+
+    if (!window.supabase) {
+      showToast("Couldn't load the database library — check your connection");
+      return null;
+    }
+
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return supabaseClient;
+  }
+
+  // =============================================
+  // DATA — loaded live from Supabase on login
+  // These start empty and get filled by loadItems()
+  // =============================================
+  let drills = [];
+  let exercises = [];
+
+  // Pulls every row from the "items" table and splits it into
+  // the drills array and exercises array based on its "type" column.
+  async function loadItems() {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const { data, error } = await client
+      .from('items')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error(error);
+      showToast("Couldn't load drills — check your connection");
+      return;
+    }
+
+    drills = data.filter(item => item.type === 'drill');
+    exercises = data.filter(item => item.type === 'exercise');
+
+    renderDrills();
+    renderExercises();
+  }
+
+  // Simulated trainee list — in a real setup this would come from a database
+  const trainees = [
+    { name: "Marcus J.", joined: "June 2" },
+    { name: "Aaliyah T.", joined: "June 5" },
+    { name: "Devon R.", joined: "June 10" }
+  ];
+
+  // =============================================
+  // STATE
+  // =============================================
+  let currentUser = null;
+  let isCoach = false;
+  let drillFilter = "All";
+  let exerciseFilter = "All";
+
+  // =============================================
+  // AUTH
+  // =============================================
+  function tryLogin() {
+    const name = document.getElementById('nameInput').value.trim();
+    const code = document.getElementById('codeInput').value.trim().toUpperCase();
+    const err  = document.getElementById('authError');
+
+    if (!name) {
+      err.textContent = "Please enter your name first.";
+      err.style.display = 'block';
+      return;
+    }
+
+    if (code === COACH_CODE.toUpperCase()) {
+      isCoach = true;
+    } else if (code === teamCode.toUpperCase()) {
+      isCoach = false;
+    } else {
+      err.style.display = 'block';
+      return;
+    }
+
+    currentUser = name;
+    err.style.display = 'none';
+    enterApp();
+  }
+
+  function enterApp() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('userPill').textContent = currentUser;
+    if (isCoach) {
+      document.getElementById('adminTab').style.display = 'inline-block';
+    }
+    document.getElementById('codeDisplay').textContent = teamCode;
+    loadItems();          // pulls drills + exercises from Supabase
+    renderTrainees();
+  }
+
+  function logout() {
+    currentUser = null;
+    isCoach = false;
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('authScreen').style.display = 'flex';
+    document.getElementById('nameInput').value = '';
+    document.getElementById('codeInput').value = '';
+    document.getElementById('adminTab').style.display = 'none';
+    // Reset tabs
+    showTabById('drills');
+  }
+
+  // Also allow pressing Enter to log in
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.getElementById('authScreen').style.display !== 'none') {
+      tryLogin();
+    }
+  });
+
+  // =============================================
+  // TAB NAVIGATION
+  // =============================================
+  function showTab(tabId, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function showTabById(tabId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(t => { if (t.getAttribute('onclick')?.includes(tabId)) t.classList.add('active'); });
+  }
+
+  // =============================================
+  // CATEGORY → CSS CLASS MAPPING
+  // Add a new entry here when you add a new category
+  // =============================================
+  function tagClass(cat) {
+    const map = {
+      "Ball handling": "tag-ballhandling",
+      "Defense":       "tag-defense",
+      "Conditioning":  "tag-conditioning",
+      "Offense":       "tag-offense",
+      "Shooting":      "tag-shooting"
+    };
+    return map[cat] || "tag-default";
+  }
+
+  // =============================================
+  // RENDER DRILLS LIST
+  // =============================================
+  function renderDrills() {
+    const cats = ["All", ...new Set(drills.map(d => d.category))];
+    document.getElementById('drillFilters').innerHTML = cats.map(c =>
+      `<button class="chip ${c === drillFilter ? 'active' : ''}" onclick="setDrillFilter('${c}')">${c}</button>`
+    ).join('');
+
+    const list = drillFilter === "All" ? drills : drills.filter(d => d.category === drillFilter);
+    document.getElementById('drillGrid').innerHTML = list.map(d => `
+      <div class="drill-card">
+        ${isCoach ? `<button class="delete-btn" onclick="deleteDrill(event, ${d.id})">✕</button>` : ''}
+        <div onclick="showDrill(${d.id})">
+          <span class="card-tag ${tagClass(d.category)}">${d.category}</span>
+          <div class="card-title">${d.title}</div>
+          <div class="card-meta">
+            <span>⏱ ${d.duration}</span>
+            <span>${d.difficulty}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function setDrillFilter(cat) { drillFilter = cat; renderDrills(); }
+
+  // =============================================
+  // SHOW DRILL DETAIL
+  // =============================================
+  function showDrill(id) {
+    const d = drills.find(x => x.id === id);
+    if (!d) return;
+
+    document.getElementById('drillListView').style.display = 'none';
+    const detail = document.getElementById('drillDetail');
+    detail.style.display = 'block';
+
+    // Build the video embed HTML if a YouTube URL was provided
+    let videoHTML = '';
+    if (d.video) {
+      const embedId = getYouTubeId(d.video);
+      if (embedId) {
+        videoHTML = `
+          <div class="section-label">Video</div>
+          <div class="video-wrapper">
+            <iframe src="https://www.youtube.com/embed/${embedId}" allowfullscreen></iframe>
+          </div>
+        `;
+      }
+    }
+
+    detail.innerHTML = `
+      <button class="back-btn" onclick="backToList('drill')">← Back to drills</button>
+      ${isCoach ? `<button class="edit-btn" onclick="showEditForm(${d.id}, 'drill')">Edit</button>` : ''}
+      <span class="card-tag ${tagClass(d.category)}">${d.category}</span>
+      <div class="detail-title">${d.title}</div>
+      <div class="detail-badges">
+        <span class="badge">⏱ ${d.duration}</span>
+        <span class="badge">${d.difficulty}</span>
+      </div>
+      ${videoHTML}
+      <div class="section-label">Overview</div>
+      <div class="detail-desc">${d.description}</div>
+      <div class="section-label">Steps</div>
+      <ul class="steps-list">
+        ${d.steps.map((s, i) => `
+          <li class="step-item">
+            <div class="step-num">${i + 1}</div>
+            <div class="step-text">${s}</div>
+          </li>
+        `).join('')}
+      </ul>
+    `;
+  }
+
+  // =============================================
+  // RENDER EXERCISES LIST
+  // =============================================
+  function renderExercises() {
+    const cats = ["All", ...new Set(exercises.map(d => d.category))];
+    document.getElementById('exerciseFilters').innerHTML = cats.map(c =>
+      `<button class="chip ${c === exerciseFilter ? 'active' : ''}" onclick="setExerciseFilter('${c}')">${c}</button>`
+    ).join('');
+
+    const list = exerciseFilter === "All" ? exercises : exercises.filter(d => d.category === exerciseFilter);
+    document.getElementById('exerciseGrid').innerHTML = list.map(d => `
+      <div class="drill-card">
+        ${isCoach ? `<button class="delete-btn" onclick="deleteExercise(event, ${d.id})">✕</button>` : ''}
+        <div onclick="showExercise(${d.id})">
+          <span class="card-tag ${tagClass(d.category)}">${d.category}</span>
+          <div class="card-title">${d.title}</div>
+          <div class="card-meta">
+            <span>⏱ ${d.duration}</span>
+            <span>${d.difficulty}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function setExerciseFilter(cat) { exerciseFilter = cat; renderExercises(); }
+
+  function showExercise(id) {
+    const d = exercises.find(x => x.id === id);
+    if (!d) return;
+
+    document.getElementById('exerciseListView').style.display = 'none';
+    const detail = document.getElementById('exerciseDetail');
+    detail.style.display = 'block';
+
+    let videoHTML = '';
+    if (d.video) {
+      const embedId = getYouTubeId(d.video);
+      if (embedId) {
+        videoHTML = `
+          <div class="section-label">Video</div>
+          <div class="video-wrapper">
+            <iframe src="https://www.youtube.com/embed/${embedId}" allowfullscreen></iframe>
+          </div>
+        `;
+      }
+    }
+
+    detail.innerHTML = `
+      <button class="back-btn" onclick="backToList('exercise')">← Back to exercises</button>
+      ${isCoach ? `<button class="edit-btn" onclick="showEditForm(${d.id}, 'exercise')">Edit</button>` : ''}
+      <span class="card-tag ${tagClass(d.category)}">${d.category}</span>
+      <div class="detail-title">${d.title}</div>
+      <div class="detail-badges">
+        <span class="badge">⏱ ${d.duration}</span>
+        <span class="badge">${d.difficulty}</span>
+      </div>
+      ${videoHTML}
+      <div class="section-label">Overview</div>
+      <div class="detail-desc">${d.description}</div>
+      <div class="section-label">Steps</div>
+      <ul class="steps-list">
+        ${d.steps.map((s, i) => `
+          <li class="step-item">
+            <div class="step-num">${i + 1}</div>
+            <div class="step-text">${s}</div>
+          </li>
+        `).join('')}
+      </ul>
+    `;
+  }
+
+  function backToList(type) {
+    if (type === 'drill') {
+      document.getElementById('drillListView').style.display = 'block';
+      document.getElementById('drillDetail').style.display = 'none';
+    } else {
+      document.getElementById('exerciseListView').style.display = 'block';
+      document.getElementById('exerciseDetail').style.display = 'none';
+    }
+  }
+
+  // =============================================
+  // ADMIN: EDIT EXISTING DRILL / EXERCISE
+  // Replaces the detail view with an editable form,
+  // pre-filled with the item's current values.
+  // Works for both drills and exercises — "kind" tells
+  // it which array and which detail panel to use.
+  // =============================================
+  function showEditForm(id, kind) {
+    const source = kind === 'drill' ? drills : exercises;
+    const item = source.find(x => x.id === id);
+    if (!item) return;
+
+    const detailId = kind === 'drill' ? 'drillDetail' : 'exerciseDetail';
+    const detail = document.getElementById(detailId);
+
+    detail.innerHTML = `
+      <button class="back-btn" onclick="${kind === 'drill' ? 'showDrill' : 'showExercise'}(${item.id})">← Cancel</button>
+      <div class="detail-title">Edit ${kind === 'drill' ? 'drill' : 'exercise'}</div>
+
+      <div class="admin-form">
+        <label>Title</label>
+        <input type="text" id="editTitle" value="${escapeAttr(item.title)}" />
+
+        <label>Category</label>
+        <select id="editCategory">
+          ${["Ball handling","Offense","Defense","Conditioning","Shooting"].map(c =>
+            `<option ${c === item.category ? 'selected' : ''}>${c}</option>`
+          ).join('')}
+        </select>
+
+        <label>Duration / Reps</label>
+        <input type="text" id="editDuration" value="${escapeAttr(item.duration)}" />
+
+        <label>Difficulty</label>
+        <select id="editDifficulty">
+          ${["All levels","Beginner","Intermediate","Advanced"].map(diff =>
+            `<option ${diff === item.difficulty ? 'selected' : ''}>${diff}</option>`
+          ).join('')}
+        </select>
+
+        <label>Description</label>
+        <textarea id="editDesc">${escapeHTML(item.description || '')}</textarea>
+
+        <label>Steps (one per line)</label>
+        <textarea id="editSteps">${escapeHTML((item.steps || []).join('\n'))}</textarea>
+
+        <label>YouTube link (optional)</label>
+        <input type="text" id="editVideo" value="${escapeAttr(item.video || '')}" placeholder="https://youtube.com/..." />
+
+        <button class="btn-add" onclick="saveEdit(${item.id}, '${kind}')">Save changes</button>
+      </div>
+    `;
+  }
+
+  async function saveEdit(id, kind) {
+    const title = document.getElementById('editTitle').value.trim();
+    if (!title) { showToast("Title can't be empty"); return; }
+
+    const updates = {
+      title,
+      category: document.getElementById('editCategory').value,
+      duration: document.getElementById('editDuration').value || "–",
+      difficulty: document.getElementById('editDifficulty').value,
+      description: document.getElementById('editDesc').value,
+      steps: document.getElementById('editSteps').value
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean),
+      video: document.getElementById('editVideo').value.trim()
+    };
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const { error } = await client.from('items').update(updates).eq('id', id);
+
+    if (error) {
+      console.error(error);
+      showToast("Couldn't save changes — check your connection");
+      return;
+    }
+
+    showToast(`"${updates.title}" updated ✓`);
+    await loadItems(); // refresh local data with the saved changes
+
+    // Return to the detail view (not the edit form) so the coach sees the result
+    if (kind === 'drill') {
+      showDrill(id);
+    } else {
+      showExercise(id);
+    }
+  }
+
+  // Small helpers to safely drop text into HTML attributes / textareas
+  // without a stray quote or tag breaking the page
+  function escapeAttr(str) {
+    return String(str || '').replace(/"/g, '&quot;');
+  }
+  function escapeHTML(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // =============================================
+  // ADMIN: ADD NEW DRILL / EXERCISE
+  // =============================================
+  async function addItem() {
+    const title = document.getElementById('newTitle').value.trim();
+    if (!title) { showToast("Enter a title first"); return; }
+
+    const newItem = {
+      type: document.getElementById('newType').value, // 'drill' or 'exercise'
+      title,
+      category: document.getElementById('newCategory').value,
+      duration: document.getElementById('newDuration').value || "–",
+      difficulty: document.getElementById('newDifficulty').value,
+      description: document.getElementById('newDesc').value,
+      steps: document.getElementById('newSteps').value
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean),
+      video: document.getElementById('newVideo').value.trim()
+    };
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const { error } = await client.from('items').insert(newItem);
+
+    if (error) {
+      console.error(error);
+      showToast("Couldn't save — check your connection");
+      return;
+    }
+
+    // Clear the form
+    ['newTitle','newDuration','newDesc','newSteps','newVideo'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+
+    showToast(`"${newItem.title}" added ✓`);
+    loadItems(); // refresh the lists with the new item included
+  }
+
+  // =============================================
+  // ADMIN: DELETE DRILL / EXERCISE
+  // Permanently removes the row from Supabase —
+  // everyone who opens the app will see it gone.
+  // =============================================
+  async function deleteDrill(event, id) {
+    event.stopPropagation(); // stop the click from also opening the drill detail
+    const drill = drills.find(d => d.id === id);
+    if (!confirm(`Delete "${drill.title}"? This can't be undone.`)) return;
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const { error } = await client.from('items').delete().eq('id', id);
+
+    if (error) {
+      console.error(error);
+      showToast("Couldn't delete — check your connection");
+      return;
+    }
+
+    showToast(`"${drill.title}" deleted`);
+    loadItems(); // refresh the list
+  }
+
+  async function deleteExercise(event, id) {
+    event.stopPropagation();
+    const exercise = exercises.find(d => d.id === id);
+    if (!confirm(`Delete "${exercise.title}"? This can't be undone.`)) return;
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const { error } = await client.from('items').delete().eq('id', id);
+
+    if (error) {
+      console.error(error);
+      showToast("Couldn't delete — check your connection");
+      return;
+    }
+
+    showToast(`"${exercise.title}" deleted`);
+    loadItems(); // refresh the list
+  }
+
+  // =============================================
+  // ADMIN: ACCESS CODE MANAGEMENT
+  // =============================================
+  function copyCode() {
+    navigator.clipboard.writeText(teamCode).then(() => showToast("Code copied to clipboard"));
+  }
+
+  function regenCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    teamCode = Array.from({ length: 6 }, () =>
+      chars[Math.floor(Math.random() * chars.length)]
+    ).join('');
+    document.getElementById('codeDisplay').textContent = teamCode;
+    showToast("New code generated — share it with your team");
+  }
+
+  // =============================================
+  // TRAINEE LIST
+  // =============================================
+  function renderTrainees() {
+    document.getElementById('traineeList').innerHTML = trainees.map(t => `
+      <div class="trainee-row">
+        <div class="trainee-name">${t.name}</div>
+        <div class="trainee-date">Joined ${t.joined}</div>
+      </div>
+    `).join('');
+  }
+
+  // =============================================
+  // UTILITIES
+  // =============================================
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.style.display = 'none', 2500);
+  }
+
+  function getYouTubeId(url) {
+    const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return match ? match[1] : null;
+  }
+</script>
+</body>
+</html>
