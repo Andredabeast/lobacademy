@@ -342,6 +342,7 @@
     .tag-offense      { background: #F0E9FD; color: #5034B8; }
     .tag-shooting     { background: #FAEEDA; color: #854F0B; }
     .tag-default      { background: #F1EFE8; color: #5F5E5A; }
+    .tag-finishing      { background: #F1EFE8; color: #5F5E5A; }
 
     .card-title {
       font-size: 15px;
@@ -722,6 +723,7 @@
           <option>Defense</option>
           <option>Conditioning</option>
           <option>Shooting</option>
+          <option>Finishing</option>ing</option>
         </select>
 
         <label>Duration / Reps</label>
@@ -927,6 +929,7 @@
       "Defense":       "tag-defense",
       "Conditioning":  "tag-conditioning",
       "Offense":       "tag-offense",
+      "Finishing":  "tag-finishing",
       "Shooting":      "tag-shooting"
     };
     return map[cat] || "tag-default";
@@ -1115,7 +1118,7 @@
 
         <label>Category</label>
         <select id="editCategory">
-          ${["Ball handling","Offense","Defense","Conditioning","Shooting"].map(c =>
+          ${["Ball handling","Offense","Defense","Conditioning","Shooting","Finshing"].map(c =>
             `<option ${c === item.category ? 'selected' : ''}>${c}</option>`
           ).join('')}
         </select>
